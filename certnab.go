@@ -55,7 +55,7 @@ func (c *Client) HTTPChallenge() error {
 		return fmt.Errorf("new registration failed: %v", err)
 	}
 
-	auth, _, err := c.LEClient.NewAuthorization(accountKey, "dns", "dev.coleman.codes")
+	auth, _, err := c.LEClient.NewAuthorization(accountKey, "dns", c.ourDomain)
 	if err != nil {
 		return err
 	}
