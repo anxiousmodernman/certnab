@@ -35,17 +35,16 @@ func NewClient(acmeURL, dest, domain string) (*Client, error) {
 }
 
 // Client wraps information we need to talk to an ACME server
-// and
+// and request certificates.
 type Client struct {
 	LEClient  *letsencrypt.Client
 	dest      string
 	ourDomain string
 }
 
-// HTTPChallenge binds to port 80 and serves content. This proves control over
-// the server.
+// HTTPChallenge binds to port 80 and serves content from an exchange with the
+// ACME server. This proves control over a server at our domain name.
 func (c *Client) HTTPChallenge() error {
-
 	accountKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return err
@@ -89,7 +88,7 @@ func (c *Client) HTTPChallenge() error {
 	if err := c.LEClient.ChallengeReady(accountKey, chal); err != nil {
 		return fmt.Errorf("challenge failed: %v", err)
 	}
-	csr, certKey, err := c.newCSR()
+	csr, key, err := c.newCSR()
 	if err != nil {
 		return err
 	}
@@ -109,7 +108,7 @@ func (c *Client) HTTPChallenge() error {
 		return err
 	}
 
-	pemKey := pemEncodePrivateKey(certKey)
+	pemKey := pemEncodePrivateKey(key)
 
 	err = ioutil.WriteFile("key.pem", pemKey, 0755)
 	if err != nil {
@@ -128,18 +127,18 @@ func pemEncodePrivateKey(priv *rsa.PrivateKey) []byte {
 }
 
 func (c *Client) newCSR() (*x509.CertificateRequest, *rsa.PrivateKey, error) {
-	certKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	key, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return nil, nil, err
 	}
 	template := &x509.CertificateRequest{
 		SignatureAlgorithm: x509.SHA256WithRSA,
 		PublicKeyAlgorithm: x509.RSA,
-		PublicKey:          &certKey.PublicKey,
+		PublicKey:          &key.PublicKey,
 		Subject:            pkix.Name{CommonName: c.ourDomain},
 		DNSNames:           []string{c.ourDomain},
 	}
-	csrDER, err := x509.CreateCertificateRequest(rand.Reader, template, certKey)
+	csrDER, err := x509.CreateCertificateRequest(rand.Reader, template, key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -147,5 +146,5 @@ func (c *Client) newCSR() (*x509.CertificateRequest, *rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return csr, certKey, nil
+	return csr, key, nil
 }
